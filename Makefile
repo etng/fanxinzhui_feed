@@ -1,8 +1,10 @@
 gh-pages: build
 	/bin/bash build_gh_pages.sh
 build: setup
+	. cronjob.env.sh
 	/usr/bin/yarn run update
 setup:
+	. cronjob.env.sh
 	/usr/bin/yarn
 	mkdir -p data/dist
 	touch data/dist/index.htm
