@@ -36,7 +36,6 @@ superagent
     })
     Promise.all(metas.map(crawlDrama)).then((updates) => {
       console.log('all done')
-      // console.log(JSON.stringify(updates, '', ' '))
       const author = {
         name: "追新番",
         link: "http://www.fanxinzhui.com/",
@@ -49,10 +48,11 @@ superagent
         link: "http://www.fanxinzhui.com/",
         image: "http://www.fanxinzhui.com/res/logo.png",
         generator: "Zhuixinfan updater",
-        // feedLinks: {
-        //     json: "https://example.com/json",
-        //     atom: "https://example.com/atom"
-        // },
+        feedLinks: {
+          json: "https://etng.github.io/fanxinzhui_feed/fanxinzhui.json",
+          atom: "https://etng.github.io/fanxinzhui_feed/fanxinzhui.atom",
+          rss: "https://etng.github.io/fanxinzhui_feed/fanxinzhui.rss",
+        },
         author: author,
       });
       updates.forEach(post => {
