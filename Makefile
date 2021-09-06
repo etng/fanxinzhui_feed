@@ -1,3 +1,5 @@
+gh-pages: build
+	/bin/bash build_gh_pages.sh
 build: setup
 	/usr/bin/yarn run update
 setup:
@@ -5,5 +7,4 @@ setup:
 	mkdir -p data/dist
 	touch data/dist/index.htm
 	echo '<h1>404 Not Found!</h1>' > data/dist/index.htm
-gh-pages: build
-	/bin/bash build_gh_pages.sh
+	echo '[Subscribe](https://etng.github.io/fanxinzhui_feed/fanxinzhui.rss)' > data/dist/README.md
