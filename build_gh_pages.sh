@@ -10,3 +10,4 @@ git remote add origin git@github.com:etng/fanxinzhui_feed.git
 git checkout -b gh-pages
 git push -u -f origin gh-pages
 popd
+rm -fr ../fanxinzhui_feed_gh_pages
