@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "dayjs": "^1.10.6",
+    "expand-tilde": "^2.0.2",
+    "feed": "^4.2.2",
+    "jsdom": "^17.0.0",
+    "superagent": "^6.1.0",
+    "superagent-cache": "^3.1.1"
+  },
+  "scripts": {
+    "update": "node main.js"
+  },
+  "name": "fanxinzhui_feed",
+  "version": "1.0.0",
+  "main": "main.js",
+  "license": "MIT"
+}
