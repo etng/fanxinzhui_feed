@@ -1,9 +1,9 @@
-SHELL:=/bin/bash
 build: setup
-	yarn run update
+	/usr/bin/yarn run update
 setup:
-	yarn
+	/usr/bin/yarn
 	mkdir -p data/dist
 	touch data/dist/index.htm
-gh-pages:
-	(shell build_gh_pages.sh)
+	echo '<h1>404 Not Found!</h1>' > data/dist/index.htm
+gh-pages: build
+	/bin/bash build_gh_pages.sh
