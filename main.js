@@ -145,7 +145,7 @@ function crawlDrama(meta) {
                 l += `<a href="${line.url}" target="_blank">${line.url}</a>`
               }
               if (line.password) {
-                l += `<span>&nbsp;密码:&nbsp</span><span>${line.password}</span>`
+                l += `<span>&nbsp;密码:&nbsp;</span><span>${line.password}</span>`
               }
               return l
             })
