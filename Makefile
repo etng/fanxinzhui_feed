@@ -1,3 +1,5 @@
+aio:
+	/bin/bash aio.sh
 gh-pages: build
 	/bin/bash build_gh_pages.sh
 build: setup

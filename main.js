@@ -116,6 +116,7 @@ function crawlDrama(meta) {
             mt = mtm.textContent
             mtm.remove()
           }
+          mt = mt.replace(/:+$/g, '')
 
           drama.meta[mt] = li.textContent
         })
@@ -134,15 +135,21 @@ function crawlDrama(meta) {
               url: span.querySelector('a').getAttribute('href'),
               password: span.querySelector('a:nth-child(2)').textContent,
             })
-
           })
-          var contentLines = ep.links.map((line) => {
-            return `${line.url} ${line.password}`
-          })
-
           if (meta.season == ep.id && meta.name == ep.title) {
             ep.time = meta.time
             ep.url = meta.url
+            var contentLines = ep.links.map((line) => {
+              var l = ''
+              if (line.url) {
+                l += `<a href="${line.url}" target="_blank">${line.url}</a>`
+              }
+              if (line.password) {
+                l += `<span>&nbsp;密码:&nbsp</span><span>${line.password}</span>`
+              }
+              return l
+            })
+            contentLines.push("\n\n\n\n" + description)
             resolve(
               {
                 title: `${drama.title} ${meta.season}`,
@@ -150,7 +157,7 @@ function crawlDrama(meta) {
                 url: `${meta.url}#${meta.season}`,
                 description: description,
                 image: drama.cover,
-                content: nl2p(contentLines.join("\r\n")),
+                content: nl2p(contentLines.join("\r\n").trim()),
               })
           }
           drama.episodes.push(ep)
