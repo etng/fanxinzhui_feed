@@ -77,11 +77,11 @@ superagent
       feed.addCategory("Jpanese");
       feed.addContributor(author);
       // RSS 2.0
-      fs.writeFile(expandTilde("data/dist/fanxinzhui.rss"), feed.rss2(), showError);
+      fs.writeFile(expandTilde("/data/dist/fanxinzhui.rss"), feed.rss2(), showError);
       //  Atom 1.0
-      fs.writeFile(expandTilde("data/dist/fanxinzhui.atom"), feed.atom1(), showError);
+      fs.writeFile(expandTilde("/data/dist/fanxinzhui.atom"), feed.atom1(), showError);
       // JSON Feed 1.0
-      fs.writeFile(expandTilde("data/dist/fanxinzhui.json"), feed.json1(), showError);
+      fs.writeFile(expandTilde("/data/dist/fanxinzhui.json"), feed.json1(), showError);
     }).catch((failed_items) => {
       console.log('some faileds', failed_items)
     })
