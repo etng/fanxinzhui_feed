@@ -1,4 +1,4 @@
-name: Generate gh_pages and publish
+name: Generate gh_pages and publish them
 
 on:
   push:
