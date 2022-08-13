@@ -76,6 +76,9 @@ superagent
       feed.addCategory("TV");
       feed.addCategory("Jpanese");
       feed.addContributor(author);
+      fs.mkdirSync(expandTilde("/data/dist/"), {
+        recursive: true
+      })
       // RSS 2.0
       fs.writeFile(expandTilde("/data/dist/fanxinzhui.rss"), feed.rss2(), showError);
       //  Atom 1.0
