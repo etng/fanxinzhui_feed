@@ -85,6 +85,10 @@ superagent
       fs.writeFile(expandTilde("data/dist/fanxinzhui.atom"), feed.atom1(), showError);
       // JSON Feed 1.0
       fs.writeFile(expandTilde("data/dist/fanxinzhui.json"), feed.json1(), showError);
+
+
+      fs.writeFile(expandTilde("data/dist/index.htm"), '<h1>404 Not Found!</h1>', showError);
+      fs.writeFile(expandTilde("data/dist/README.md"), '[Subscribe](https://etng.github.io/fanxinzhui_feed/fanxinzhui.rss)', showError);
     }).catch((failed_items) => {
       console.log('some faileds', failed_items)
     })
