@@ -2,7 +2,7 @@ name: daily fetch and pushlish to gh-pages
 
 on:
   schedule:
-    - cron:  '50 9 * * *'
+    - cron:  '5 */2 * * *'
 
 jobs:
   build:
