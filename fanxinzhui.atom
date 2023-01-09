@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>http://www.fanxinzhui.com/</id>
     <title>追新番</title>
-    <updated>2023-01-08T23:18:30.282Z</updated>
+    <updated>2023-01-09T01:20:05.023Z</updated>
     <generator>Zhuixinfan updater</generator>
     <author>
         <name>追新番</name>
@@ -39,7 +39,7 @@
         </contributor>
     </entry>
     <entry>
-        <title type="html"><![CDATA[忍者结婚难 Ninja ni Kekkon wa Mutsukashii(2023) S01E01]]></title>
+        <title type="html"><![CDATA[忍者结婚难 Ninja ni Kekkon wa Muzukashii(2023) S01E01]]></title>
         <id>http://www.fanxinzhui.com/rr/2472#S01E01</id>
         <link href="http://www.fanxinzhui.com/rr/2472#S01E01"/>
         <updated>2023-01-07T22:09:00.000Z</updated>
