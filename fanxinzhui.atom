@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>http://www.fanxinzhui.com/</id>
     <title>追新番</title>
-    <updated>2023-06-11T05:15:39.699Z</updated>
+    <updated>2023-06-11T06:18:00.100Z</updated>
     <generator>Zhuixinfan updater</generator>
     <author>
         <name>追新番</name>
@@ -21,7 +21,7 @@
         <uri>http://www.fanxinzhui.com/</uri>
     </contributor>
     <entry>
-        <title type="html"><![CDATA[夜黑游行 Black Night Parade(2023) S01E01]]></title>
+        <title type="html"><![CDATA[黑夜游行 Black Night Parade(2023) S01E01]]></title>
         <id>http://www.fanxinzhui.com/rr/2509#S01E01</id>
         <link href="http://www.fanxinzhui.com/rr/2509#S01E01"/>
         <updated>2023-06-11T11:53:00.000Z</updated>
@@ -39,7 +39,7 @@
         </contributor>
     </entry>
     <entry>
-        <title type="html"><![CDATA[夜黑游行 Black Night Parade(2023) S01E01]]></title>
+        <title type="html"><![CDATA[黑夜游行 Black Night Parade(2023) S01E01]]></title>
         <id>http://www.fanxinzhui.com/rr/2509#S01E01</id>
         <link href="http://www.fanxinzhui.com/rr/2509#S01E01"/>
         <updated>2023-06-11T11:53:00.000Z</updated>
