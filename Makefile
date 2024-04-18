@@ -12,3 +12,7 @@ setup:
 	touch data/dist/index.htm
 	echo '<h1>404 Not Found!</h1>' > data/dist/index.htm
 	echo '[Subscribe](https://etng.github.io/fanxinzhui_feed/fanxinzhui.rss)' > data/dist/README.md
+save:
+	git add .
+	git commit -am 'updated'
+	git push origin master
