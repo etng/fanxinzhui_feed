@@ -14,10 +14,11 @@ const showError = (e) => {
     console.error(e)
   }
 }
-const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36'
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
 superagent
   .get('http://www.fanxinzhui.com/lastest')
   .set('User-Agent', UA)
+  .set('Referer', "https://www.fanxinzhui.com/list")
   .then((res) => {
     const { document } = new JSDOM(res.text).window
     var metas = [];
