@@ -15,7 +15,7 @@ const showError = (e) => {
   }
 };
 const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 superagent
   .get("http://www.fanxinzhui.com/lastest")
   .set("User-Agent", UA)
@@ -178,9 +178,10 @@ function crawlDrama(meta) {
               ep.id = p.querySelector(".season").textContent;
               ep.title = p.querySelector(".item").textContent;
               item.querySelectorAll("p.way span").forEach((span) => {
+                var passwordHref = span.querySelector("a:nth-child(2)");
                 ep.links.push({
                   url: span.querySelector("a").getAttribute("href"),
-                  password: span.querySelector("a:nth-child(2)").textContent,
+                  password: passwordHref ? passwordHref.textContent : "",
                 });
               });
               if (meta.season == ep.id && meta.name == ep.title) {
