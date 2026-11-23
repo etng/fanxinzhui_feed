@@ -1,6 +1,7 @@
 name: Generate gh-pages and publish them
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master

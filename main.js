@@ -3,23 +3,61 @@ const { JSDOM } = require("jsdom");
 const dayjs = require("dayjs");
 const { Feed } = require("feed");
 const fs = require("fs");
-var expandTilde = require("expand-tilde");
 var customParseFormat = require("dayjs/plugin/customParseFormat");
 var utc = require("dayjs/plugin/utc");
 dayjs.extend(utc);
 dayjs.extend(customParseFormat);
 require("superagent-cache")(superagent);
-const showError = (e) => {
-  if (e) {
-    console.error(e);
-  }
-};
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
-superagent
-  .get("http://www.fanxinzhui.com/lastest")
-  .set("User-Agent", UA)
-  .set("Referer", "https://www.fanxinzhui.com/list")
+const BASE = "https://www.fanxinzhui.com";
+const OUT_DIR = "data/dist";
+fs.mkdirSync(OUT_DIR, { recursive: true });
+
+const fail = (err) => {
+  console.error(err);
+  process.exit(1);
+};
+
+const fetchPage = async (url) => {
+  let lastErr;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      return await superagent
+        .get(url)
+        .set("User-Agent", UA)
+        .set(
+          "Accept",
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        )
+        .set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+        .set("Referer", BASE + "/list");
+    } catch (err) {
+      lastErr = err;
+      console.error("fetch attempt " + attempt + " failed: " + url);
+      if (attempt < 3) {
+        await new Promise((resolve) => setTimeout(resolve, 3000 * attempt));
+      }
+    }
+  }
+  throw lastErr;
+};
+
+const writeOut = (name, contents) =>
+  fs.writeFileSync(OUT_DIR + "/" + name, contents);
+
+const CRAWL_CONCURRENCY = 4;
+
+async function crawlAll(metas) {
+  const updates = [];
+  for (let i = 0; i < metas.length; i += CRAWL_CONCURRENCY) {
+    const batch = metas.slice(i, i + CRAWL_CONCURRENCY);
+    updates.push(...(await Promise.all(batch.map(crawlDrama))));
+  }
+  return updates;
+}
+
+fetchPage(BASE + "/lastest")
   .then(
     (res) => {
       const { document } = new JSDOM(res.text).window;
@@ -30,7 +68,7 @@ superagent
           var url = a.href;
 
           if (url.indexOf("//") == -1) {
-            url = "http://www.fanxinzhui.com" + url;
+            url = BASE + url;
           }
           metas.push({
             url: url,
@@ -41,9 +79,14 @@ superagent
               .toDate(),
           });
         });
-      Promise.all(metas.map(crawlDrama))
+      if (metas.length === 0) {
+        return fail("no entries parsed from " + BASE + "/lastest");
+      }
+      crawlAll(metas)
         .then((updates) => {
-          console.log("all done");
+          if (updates.length === 0) {
+            return fail("no feed items built from " + metas.length + " entries");
+          }
           const author = {
             name: "追新番",
             link: "http://www.fanxinzhui.com/",
@@ -80,46 +123,22 @@ superagent
           feed.addCategory("TV");
           feed.addCategory("Jpanese");
           feed.addContributor(author);
-          fs.mkdirSync(expandTilde("data/dist/"), {
-            recursive: true,
-          });
           // RSS 2.0
-          fs.writeFile(
-            expandTilde("data/dist/fanxinzhui.rss"),
-            feed.rss2(),
-            showError
-          );
+          writeOut("fanxinzhui.rss", feed.rss2());
           //  Atom 1.0
-          fs.writeFile(
-            expandTilde("data/dist/fanxinzhui.atom"),
-            feed.atom1(),
-            showError
-          );
+          writeOut("fanxinzhui.atom", feed.atom1());
           // JSON Feed 1.0
-          fs.writeFile(
-            expandTilde("data/dist/fanxinzhui.json"),
-            feed.json1(),
-            showError
+          writeOut("fanxinzhui.json", feed.json1());
+          writeOut("index.htm", "<h1>404 Not Found!</h1>");
+          writeOut(
+            "README.md",
+            "[Subscribe](https://etng.github.io/fanxinzhui_feed/fanxinzhui.rss)"
           );
-
-          fs.writeFile(
-            expandTilde("data/dist/index.htm"),
-            "<h1>404 Not Found!</h1>",
-            showError
-          );
-          fs.writeFile(
-            expandTilde("data/dist/README.md"),
-            "[Subscribe](https://etng.github.io/fanxinzhui_feed/fanxinzhui.rss)",
-            showError
-          );
+          console.log("wrote " + updates.length + " items to " + OUT_DIR);
         })
-        .catch((failed_items) => {
-          console.log("some faileds", failed_items);
-        });
+        .catch(fail);
     },
-    (err) => {
-      console.error(err);
-    }
+    fail
   );
 
 function nl2p(lines) {
@@ -135,9 +154,7 @@ function nl2p(lines) {
 
 function crawlDrama(meta) {
   return new Promise((resolve, reject) => {
-    superagent
-      .get(meta.url)
-      .set("User-Agent", UA)
+    fetchPage(meta.url)
       .then(
         (res) => {
           const { document } = new JSDOM(res.text).window;

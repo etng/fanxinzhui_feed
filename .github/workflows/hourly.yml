@@ -1,6 +1,7 @@
 name: hourly fetch and pushlish to gh-pages
 
 on:
+  workflow_dispatch:
   schedule:
     - cron:  '6 * * * *'
 
