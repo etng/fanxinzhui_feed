@@ -30,6 +30,8 @@ jobs:
           FOLDER: data/dist
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MESSAGE: "Build: ({sha}) {msg}"
+          COMMIT_NAME: etng
+          COMMIT_EMAIL: 547+etng@users.noreply.github.com
 
       - name: finish
         run: echo "I am done now"
