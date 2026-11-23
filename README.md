@@ -83,6 +83,22 @@ rules:
 - `state.actions` holds `entry|share|action` → timestamp/exit, so the key never
   contains the command text.
 
+### copying to a NAS
+
+`tools/push-to-nas.sh <local file|dir> <remote dir>` streams over plain ssh:
+`cat` for a file (written as `.<name>.part`, renamed after a size check) and
+`tar` for a folder. It is the fallback for boxes whose sftp-server is chrooted
+(rclone/sftp cannot see the target path) and whose rsync receiver is broken:
+
+```yaml
+rules:
+  - name: 绑架游戏
+    actions:
+      sync: /path/to/repo/tools/push-to-nas.sh "{file}" "/volume1/incoming/Show Name"
+```
+
+`NAS_HOST` overrides the ssh alias (default `nas166`).
+
 ```sh
 node tools/subscribe.js --dry-run          # what would run, touches nothing
 node tools/subscribe.js                    # all rules
@@ -118,6 +134,7 @@ a PATH that contains your node and `/usr/local/bin`, and logs to
 ```
 
 ## changelog
+* 2026-11-23 add `tools/push-to-nas.sh` (ssh `cat`/`tar` + size check) for NAS boxes that chroot sftp and ship a broken rsync
 * 2026-11-23 named post-download actions keyed by action name (rsync/notify/...), launchd installer for macOS scheduling
 * 2026-11-23 `tools/subscribe.js` takes named YAML rules from `~/.config/fanxinzhui.yaml` (keywords, destination, since/last N) instead of only CLI flags
 * 2026-11-23 add `tools/subscribe.js`: keyword-filtered Baidu Pan share extraction with BaiduPCS-Go transfer/download and state-based dedupe
