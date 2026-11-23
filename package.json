@@ -2,6 +2,7 @@
   "dependencies": {
     "dayjs": "^1.10.6",
     "feed": "^4.2.2",
+    "js-yaml": "^5.5.0",
     "jsdom": "^17.0.0"
   },
   "scripts": {
