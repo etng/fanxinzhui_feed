@@ -38,14 +38,14 @@ jobs:
           set -euo pipefail
           message="Build: ($(git rev-parse --short HEAD)) $(git log -1 --pretty=%s)"
           workdir="$(mktemp -d)"
-          git clone --depth 1 --branch gh-pages \
-            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$workdir"
-          rsync -a --delete --exclude '.git' data/dist/ "$workdir/"
+          git -C "$workdir" init -q -b gh-pages
+          rsync -a data/dist/ "$workdir/"
           git -C "$workdir" config user.name "$COMMIT_NAME"
           git -C "$workdir" config user.email "$COMMIT_EMAIL"
           git -C "$workdir" add -A
-          git -C "$workdir" commit --allow-empty -m "$message"
-          git -C "$workdir" push origin gh-pages
+          git -C "$workdir" commit -q -m "$message"
+          git -C "$workdir" push --force \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
 
       - name: finish
         run: echo "I am done now"
