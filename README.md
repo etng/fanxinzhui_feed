@@ -37,7 +37,7 @@ Run it on a schedule (cron example, every 30 min):
 
 ```sh
 crontab -e
-*/30 * * * * cd ~/Bodev/fanxinzhui_feed && /usr/local/bin/node tools/subscribe.js --include '关键词1' --include '关键词2' >> ~/Library/Logs/fanxinzhui-subscribe.log 2>&1
+*/30 * * * * cd ~/Bodev/fanxinzhui_feed && $(command -v node) tools/subscribe.js --include '关键词1' --include '关键词2' >> ~/Library/Logs/fanxinzhui-subscribe.log 2>&1
 ```
 
 `--include`/`--exclude` take case-insensitive regular expressions matched
