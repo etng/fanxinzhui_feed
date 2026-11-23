@@ -1,4 +1,4 @@
-const superagent = require("superagent");
+const { execFileSync } = require("child_process");
 const { JSDOM } = require("jsdom");
 const dayjs = require("dayjs");
 const { Feed } = require("feed");
@@ -7,7 +7,6 @@ var customParseFormat = require("dayjs/plugin/customParseFormat");
 var utc = require("dayjs/plugin/utc");
 dayjs.extend(utc);
 dayjs.extend(customParseFormat);
-require("superagent-cache")(superagent);
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 const BASE = "https://www.fanxinzhui.com";
@@ -19,19 +18,34 @@ const fail = (err) => {
   process.exit(1);
 };
 
+// Cloudflare rejects node's TLS fingerprint (403) but accepts curl's, so the
+// pages are fetched through curl.
+const curlGet = (url) =>
+  execFileSync(
+    "curl",
+    [
+      "-fsSL",
+      "--compressed",
+      "--max-time",
+      "25",
+      "-A",
+      UA,
+      "-H",
+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "-H",
+      "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8",
+      "-H",
+      "Referer: " + BASE + "/list",
+      url,
+    ],
+    { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 }
+  );
+
 const fetchPage = async (url) => {
   let lastErr;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      return await superagent
-        .get(url)
-        .set("User-Agent", UA)
-        .set(
-          "Accept",
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-        )
-        .set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-        .set("Referer", BASE + "/list");
+      return { text: curlGet(url) };
     } catch (err) {
       lastErr = err;
       console.error("fetch attempt " + attempt + " failed: " + url);

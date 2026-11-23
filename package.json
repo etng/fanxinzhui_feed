@@ -2,9 +2,7 @@
   "dependencies": {
     "dayjs": "^1.10.6",
     "feed": "^4.2.2",
-    "jsdom": "^17.0.0",
-    "superagent": "^6.1.0",
-    "superagent-cache": "^3.1.1"
+    "jsdom": "^17.0.0"
   },
   "scripts": {
     "update": "node main.js"
