@@ -33,11 +33,13 @@ been transferred is only downloaded again, never re-transferred; `done` entries
 are skipped entirely. A lock file keeps overlapping cron runs out. Every run
 restores your previous BaiduPCS-Go work directory.
 
-Run it on a schedule (cron example, every 30 min):
+Run it on a schedule (cron example, every 30 min). cron's PATH is just
+`/usr/bin:/bin`, so point it at the real binaries — the mise node shim and
+BaiduPCS-Go are not on it:
 
 ```sh
 crontab -e
-*/30 * * * * cd ~/Bodev/fanxinzhui_feed && $(command -v node) tools/subscribe.js --include '关键词1' --include '关键词2' >> ~/Library/Logs/fanxinzhui-subscribe.log 2>&1
+*/30 * * * * cd $HOME/Bodev/fanxinzhui_feed && $HOME/.local/share/mise/shims/node tools/subscribe.js --include '关键词1' --include '关键词2' --bin /usr/local/bin/BaiduPCS-Go >> $HOME/Library/Logs/fanxinzhui-subscribe.log 2>&1
 ```
 
 `--include`/`--exclude` take case-insensitive regular expressions matched
