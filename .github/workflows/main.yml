@@ -5,17 +5,25 @@ on:
   push:
     branches:
       - master
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages-publish
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
     name: Build and Push
     steps:
       - name: git-checkout
-        uses: actions/checkout@v4
-      - name: "use node version 20.*"
-        uses: actions/setup-node@v4
+        uses: actions/checkout@v7
+      - name: "use node version 24.*"
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
       - name: Install all dependencies
         run: npm install
 
@@ -23,12 +31,19 @@ jobs:
         run: npm run update
 
       - name: Push
-        uses: s0/git-publish-subdir-action@develop
         env:
-          REPO: self
-          BRANCH: gh-pages
-          FOLDER: data/dist
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MESSAGE: "Build: ({sha}) {msg}"
           COMMIT_NAME: etng
           COMMIT_EMAIL: 547+etng@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          message="Build: ($(git rev-parse --short HEAD)) $(git log -1 --pretty=%s)"
+          workdir="$(mktemp -d)"
+          git clone --depth 1 --branch gh-pages \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$workdir"
+          rsync -a --delete --exclude '.git' data/dist/ "$workdir/"
+          git -C "$workdir" config user.name "$COMMIT_NAME"
+          git -C "$workdir" config user.email "$COMMIT_EMAIL"
+          git -C "$workdir" add -A
+          git -C "$workdir" commit --allow-empty -m "$message"
+          git -C "$workdir" push origin gh-pages
