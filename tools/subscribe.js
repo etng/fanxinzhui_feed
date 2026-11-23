@@ -35,10 +35,13 @@ rules come from ${DEFAULT_CONFIG} (or --config), e.g.:
     - name: 绑架游戏
       include: ['绑架游戏']
       local_dir: ~/Downloads/绑架游戏
+      actions:                       # run once per entry, after the download
+        rsync: rsync -a "{file}" nas:/volume1/anime/
+        notify: ~/bin/notify-tg "{title}" "{file}"
     - name: 1080p
       include: ['1080', '2160']
       since: 2026-11-20
-      download: false
+      download: false                # transfer only, actions are skipped
 
 options:
   --config <file>      rule file (default ${DEFAULT_CONFIG})
@@ -53,7 +56,7 @@ options:
   --limit <n>          stop after n new shares of the cli rule
   --state <path>       state file (default ${DEFAULT_STATE})
   --bin <path>         BaiduPCS-Go binary (default $BAIDUPCS or "BaiduPCS-Go")
-  --dry-run            only print what would be transferred
+  --dry-run            only print what would be transferred/downloaded (and which actions are pending)
   --no-download        transfer into the account but do not download
   --verbose            echo every BaiduPCS-Go call
   --help               this text
@@ -231,6 +234,86 @@ function normalizeRemoteDir(value) {
   return dir.length > 1 ? dir.replace(/\/$/, '') : dir;
 }
 
+function normalizeActions(value, where) {
+  if (value == null) return [];
+  let entries;
+  if (Array.isArray(value)) {
+    entries = value.map((a, i) => {
+      if (!a || typeof a !== 'object' || Array.isArray(a)) {
+        die(`${where}[${i}] must be a mapping with name and command`);
+      }
+      return { name: a.name, command: a.command != null ? a.command : a.cmd != null ? a.cmd : a.run, timeout: a.timeout };
+    });
+  } else if (typeof value === 'object') {
+    entries = Object.entries(value).map(([name, v]) => {
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        return { name, command: v.command != null ? v.command : v.cmd != null ? v.cmd : v.run, timeout: v.timeout };
+      }
+      return { name, command: v };
+    });
+  } else {
+    die(where + ': actions must be a list or a mapping');
+  }
+  const out = [];
+  entries.forEach((a, i) => {
+    const name = a.name == null ? '' : String(a.name).trim();
+    if (!/^[A-Za-z0-9_.:-]+$/.test(name)) die(`${where}[${i}]: action name must match [A-Za-z0-9_.:-]+`);
+    if (a.command == null || String(a.command).trim() === '') die(`${where}[${i}] (${name}): command is required`);
+    const timeout = a.timeout == null || a.timeout === '' ? 0 : Number(a.timeout);
+    if (!(timeout >= 0)) die(`${where}[${i}] (${name}): timeout must be seconds`);
+    out.push({ name, command: String(a.command), timeout });
+  });
+  return out;
+}
+
+// Rule actions win over same-named defaults; the name is the identity, so a
+// changed command never causes a second run.
+function actionKey(item, share, name) {
+  return item.id + '|' + share.link + '|' + name;
+}
+
+function mergeActions(base, extra) {
+  const merged = new Map(base.map((a) => [a.name, a]));
+  for (const a of extra) merged.set(a.name, a);
+  return [...merged.values()];
+}
+
+function renderTemplate(command, vars) {
+  return command.replace(/\{(file|dir|remote|title|rule|link|pwd|action)\}/g, (m, k) =>
+    vars[k] == null ? '' : String(vars[k])
+  );
+}
+
+function runShell(command, { timeout, env }) {
+  return new Promise((resolve) => {
+    const child = spawn('/bin/sh', ['-c', command], { stdio: ['ignore', 'pipe', 'pipe'], env });
+    let out = '';
+    let timer = null;
+    if (timeout > 0) {
+      timer = setTimeout(() => {
+        try {
+          child.kill('SIGTERM');
+        } catch (e) {}
+        setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch (e) {}
+        }, 5000);
+      }, timeout * 1000);
+    }
+    child.stdout.on('data', (d) => (out += d));
+    child.stderr.on('data', (d) => (out += d));
+    child.on('error', (err) => {
+      if (timer) clearTimeout(timer);
+      resolve({ code: -1, out: String(err.message) });
+    });
+    child.on('close', (code, signal) => {
+      if (timer) clearTimeout(timer);
+      resolve({ code: code == null ? -1 : code, signal, out: stripAnsi(out) });
+    });
+  });
+}
+
 function normalizeRule(raw, defaults, index, source) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     die(`rules[${index}] must be a mapping with at least name and include`);
@@ -263,6 +346,10 @@ function normalizeRule(raw, defaults, index, source) {
     since: parseSince(raw.since != null ? raw.since : defaults.since, `rule "${name}" since`),
     limit,
     download: raw.download != null ? !!raw.download : defaults.download != null ? !!defaults.download : true,
+    actions: mergeActions(
+      normalizeActions(defaults.actions, 'defaults.actions'),
+      normalizeActions(raw.actions, `rule "${name}" actions`)
+    ),
   };
 }
 
@@ -302,6 +389,7 @@ function loadRules(opts) {
       normalizeRule(
         {
           name: 'cli',
+          actions: defaults.actions,
           include: cliDefaults.include,
           exclude: cliDefaults.exclude,
           all: cliDefaults.all,
@@ -356,9 +444,10 @@ function loadState(file) {
   try {
     const state = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (!state.items) state.items = {};
+    if (!state.actions) state.actions = {};
     return state;
   } catch (e) {
-    if (e.code === 'ENOENT') return { version: 1, items: {} };
+    if (e.code === 'ENOENT') return { version: 1, items: {}, actions: {} };
     throw e;
   }
 }
@@ -425,6 +514,43 @@ async function ensureRemoteDir(pcs, dir) {
   }
 }
 
+async function runAction({ action, vars, rule, item, share, state, statePath, verbose }) {
+  const key = actionKey(item, share, action.name);
+  const command = renderTemplate(action.command, { ...vars, action: action.name });
+  const started = Date.now();
+  if (verbose) log(`[${rule.name}] $ ${command}`);
+  const res = await runShell(command, {
+    timeout: action.timeout,
+    env: {
+      ...process.env,
+      FANXINZHUI_FILE: vars.file,
+      FANXINZHUI_DIR: vars.dir,
+      FANXINZHUI_REMOTE: vars.remote || '',
+      FANXINZHUI_TITLE: vars.title,
+      FANXINZHUI_RULE: rule.name,
+      FANXINZHUI_LINK: share.link,
+      FANXINZHUI_PWD: share.pwd || '',
+    },
+  });
+  const tail = res.out.trim().split('\n').filter(Boolean).slice(-3).join(' | ');
+  if (res.code === 0) {
+    state.actions[key] = {
+      action: action.name,
+      rule: rule.name,
+      title: item.title,
+      link: share.link,
+      exit: 0,
+      at: new Date().toISOString(),
+      ms: Date.now() - started,
+    };
+    saveState(statePath, state);
+    log(`[${rule.name}] action ${action.name}: ok` + (tail ? ' (' + tail + ')' : ''));
+    return true;
+  }
+  log(`[${rule.name}] action ${action.name}: FAILED exit=${res.code}` + (tail ? ' - ' + tail : ''));
+  return false;
+}
+
 /* -------------------------------- main ----------------------------------- */
 
 async function main() {
@@ -459,8 +585,17 @@ async function main() {
             // destination changed: keep the transfer, redo the download
             known = { ...known, status: 'transferred', localDir: rule.localDir };
           }
-          if (known && (known.status === 'done' || (!rule.download && known.status === 'transferred'))) continue;
-          jobs.push({ rule, key, item, share, known });
+          const pendingActions = rule.download
+            ? rule.actions.filter((a) => !state.actions[actionKey(item, share, a.name)])
+            : [];
+          if (!rule.download && known && known.status === 'transferred') continue;
+          if (known && known.status === 'done') {
+            if (pendingActions.length === 0) continue;
+            // downloaded before, only the post-download actions are missing
+            jobs.push({ rule, key, item, share, known, actions: pendingActions, onlyActions: true });
+            continue;
+          }
+          jobs.push({ rule, key, item, share, known, actions: pendingActions });
         }
       }
       log(`rule "${rule.name}": matched ${matched} entries`);
@@ -479,7 +614,9 @@ async function main() {
             (job.known ? '[' + job.known.status + '] ' : '[new] ') +
             job.item.title + ' — ' + job.share.link +
             (job.share.pwd ? ' pwd=' + job.share.pwd : ' (no code)') +
-            ' → ' + job.rule.localDir
+            ' → ' + job.rule.localDir +
+            (job.actions.length ? ' actions=' + job.actions.map((a) => a.name).join(',') : '') +
+            (job.onlyActions ? ' (actions only)' : '')
         );
       }
       return 0;
@@ -496,57 +633,87 @@ async function main() {
       if (rule.limit && done >= rule.limit) continue;
       const label = `[${rule.name}] ${job.item.title} — ${job.share.link}`;
       try {
-        if (!workDirChanged) {
-          await ensureRemoteDir(pcs, rule.remoteDir);
-          workDirChanged = true;
-        } else {
-          const cd = await pcs(['cd', rule.remoteDir]);
-          if (!/改变工作目录/.test(cd.out)) {
+        if (!job.onlyActions) {
+          if (!workDirChanged) {
             await ensureRemoteDir(pcs, rule.remoteDir);
+            workDirChanged = true;
+          } else {
+            const cd = await pcs(['cd', rule.remoteDir]);
+            if (!/改变工作目录/.test(cd.out)) {
+              await ensureRemoteDir(pcs, rule.remoteDir);
+            }
           }
-        }
 
-        let remotePath = job.known && job.known.remotePath;
-        if (!remotePath) {
-          const args = ['transfer', job.share.link];
-          if (job.share.pwd && !/[?&]pwd=/.test(job.share.link)) args.push(job.share.pwd);
-          const res = await pcs(args);
-          const saved = firstMatch(res.out, /转存成功,\s*保存了(.+?)到当前目录/);
-          if (!saved) {
-            throw new Error('transfer failed: ' + res.out.trim().split('\n').filter(Boolean).pop());
-          }
-          remotePath = posixJoin(rule.remoteDir, saved.trim());
-          state.items[job.key] = {
-            rule: rule.name,
-            title: job.item.title,
-            link: job.share.link,
-            pwd: job.share.pwd,
-            remotePath,
-            localDir: rule.localDir,
-            status: 'transferred',
-            at: new Date().toISOString(),
-          };
-          saveState(opts.state, state);
-          log(`[${rule.name}] transferred:`, remotePath);
-        } else {
-          if (state.items[job.key].localDir !== rule.localDir) {
-            state.items[job.key].localDir = rule.localDir;
+          let remotePath = job.known && job.known.remotePath;
+          if (!remotePath) {
+            const args = ['transfer', job.share.link];
+            if (job.share.pwd && !/[?&]pwd=/.test(job.share.link)) args.push(job.share.pwd);
+            const res = await pcs(args);
+            const saved = firstMatch(res.out, /转存成功,\s*保存了(.+?)到当前目录/);
+            if (!saved) {
+              throw new Error('transfer failed: ' + res.out.trim().split('\n').filter(Boolean).pop());
+            }
+            remotePath = posixJoin(rule.remoteDir, saved.trim());
+            state.items[job.key] = {
+              rule: rule.name,
+              title: job.item.title,
+              link: job.share.link,
+              pwd: job.share.pwd,
+              remotePath,
+              localDir: rule.localDir,
+              status: 'transferred',
+              at: new Date().toISOString(),
+            };
             saveState(opts.state, state);
+            log(`[${rule.name}] transferred:`, remotePath);
+          } else {
+            if (state.items[job.key].localDir !== rule.localDir) {
+              state.items[job.key].localDir = rule.localDir;
+              saveState(opts.state, state);
+            }
+            log(`[${rule.name}] already transferred:`, remotePath);
           }
-          log(`[${rule.name}] already transferred:`, remotePath);
+
+          if (rule.download) {
+            fs.mkdirSync(rule.localDir, { recursive: true });
+            const res = await pcs(['download', '--saveto', rule.localDir, remotePath]);
+            if (!/下载结束/.test(res.out) || /以下文件下载失败/.test(res.out)) {
+              throw new Error('download failed: ' + res.out.trim().split('\n').filter(Boolean).pop());
+            }
+            state.items[job.key].status = 'done';
+            state.items[job.key].localDir = rule.localDir;
+            state.items[job.key].downloadedAt = new Date().toISOString();
+            saveState(opts.state, state);
+            log(`[${rule.name}] downloaded:`, remotePath, '→', rule.localDir);
+          }
+        } else {
+          log(`[${rule.name}] already downloaded:`, job.known.remotePath);
         }
 
-        if (rule.download) {
-          fs.mkdirSync(rule.localDir, { recursive: true });
-          const res = await pcs(['download', '--saveto', rule.localDir, remotePath]);
-          if (!/下载结束/.test(res.out) || /以下文件下载失败/.test(res.out)) {
-            throw new Error('download failed: ' + res.out.trim().split('\n').filter(Boolean).pop());
+        if (rule.download && job.actions.length) {
+          const entry = state.items[job.key] || job.known || {};
+          const vars = {
+            file: entry.remotePath ? path.join(rule.localDir, path.basename(entry.remotePath)) : '',
+            dir: rule.localDir,
+            remote: entry.remotePath || '',
+            title: job.item.title,
+            rule: rule.name,
+            link: job.share.link,
+            pwd: job.share.pwd || '',
+          };
+          for (const action of job.actions) {
+            const ok = await runAction({
+              action,
+              vars,
+              rule,
+              item: job.item,
+              share: job.share,
+              state,
+              statePath: opts.state,
+              verbose: opts.verbose,
+            });
+            if (!ok) exitCode = 1;
           }
-          state.items[job.key].status = 'done';
-          state.items[job.key].localDir = rule.localDir;
-          state.items[job.key].downloadedAt = new Date().toISOString();
-          saveState(opts.state, state);
-          log(`[${rule.name}] downloaded:`, remotePath, '→', rule.localDir);
         }
         processed.set(rule.name, done + 1);
       } catch (e) {
