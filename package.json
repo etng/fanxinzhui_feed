@@ -5,7 +5,8 @@
     "jsdom": "^17.0.0"
   },
   "scripts": {
-    "update": "node main.js"
+    "update": "node main.js",
+    "subscribe": "node tools/subscribe.js"
   },
   "name": "fanxinzhui_feed",
   "version": "1.0.1",
